@@ -1,0 +1,22 @@
+Extract a list of organizations that have posted active Requests for Proposal (RFP) or Requests for Quote (RFQ) for HR software, HRIS, onboarding systems, or payroll platforms.
+
+Look for these signals:
+- Pages containing "Request for Proposal", "RFP", "RFQ", "ITB", "Solicitation" + HR software keywords
+- Government procurement portals (sam.gov, state .gov sites, county/city sites)
+- School district procurement pages mentioning HRIS, payroll, or onboarding software
+- Hospital/health system RFPs for workforce management or HR systems
+- Nonprofit RFPs for HR technology
+
+For each RFP, extract:
+- organization_name: The issuing organization's name
+- domain: Their website domain
+- rfp_title: Title of the RFP/solicitation
+- rfp_number: The RFP/solicitation number if visible
+- hr_software_type: What they're seeking (e.g., "HRIS", "Payroll System", "Onboarding Platform")
+- submission_deadline: Deadline date if mentioned
+- state: US state
+- industry: e.g., Government, Education, Healthcare, Nonprofit
+- evidence_quote: The exact sentence describing what they want (max 300 chars)
+- evidence_link: URL of the RFP page
+
+Return as a JSON array of objects. Only include active RFPs — not archived or awarded ones.

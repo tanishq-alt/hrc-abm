@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+data/*.csv
+!data/.gitkeep
+/tmp/
+*.log
+.DS_Store
+node_modules/

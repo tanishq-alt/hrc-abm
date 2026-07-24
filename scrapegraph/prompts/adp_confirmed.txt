@@ -1,0 +1,20 @@
+Extract a list of companies confirmed to be currently using ADP for payroll or HR.
+
+Look for these signals:
+- Job postings that list "ADP Workforce Now", "ADP Run", or "ADP" as a required/preferred tool
+- Job descriptions for HR Coordinator, Payroll Specialist, HR Generalist that mention ADP
+- Company pages or press releases mentioning ADP as their payroll/HR system
+- Employee reviews mentioning ADP as the company's current system
+
+For each company, extract:
+- company_name: The organization's name
+- domain: Their website domain
+- adp_product: Which ADP product they use (e.g., "ADP Workforce Now", "ADP Run", "ADP TotalSource")
+- evidence_quote: The exact text confirming ADP use (max 300 chars)
+- signal_type: One of [job_posting_adp_mention, public_adp_mention, review_mention, switching_signal]
+- industry: e.g., Healthcare, Education, Manufacturing, Retail, Nonprofit
+- state: US state abbreviation
+- confidence: High or Medium
+- outreach_angle: One sentence on how to pitch — focus on replacing manual ADP workflows
+
+Return as a JSON array of objects. Only include companies with explicit ADP mentions — not guesses.

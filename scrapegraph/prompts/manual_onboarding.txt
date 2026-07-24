@@ -1,0 +1,20 @@
+Extract a list of companies that are clearly still using manual, paper-based employee onboarding.
+
+Look for these signals:
+- PDF new hire packets hosted directly on company websites
+- Pages mentioning "new hire packet", "new employee packet", "first day paperwork", "bring completed forms"
+- HR pages with downloadable W-4, I-9, direct deposit, and benefits enrollment forms (not digital)
+- Job postings that say the HR coordinator "prepares new hire packets" or "processes new hire paperwork"
+- School districts, government agencies, nonprofits, home care agencies, small hospitals
+
+For each company, extract:
+- company_name: The organization's name
+- domain: Their website domain (e.g., "company.org")
+- evidence_quote: The exact sentence or phrase that shows manual onboarding (max 300 chars)
+- signal_type: One of [paper_packets, fax_mail, in_person_paperwork, physical_files, manual_data_entry]
+- industry: e.g., Education, Healthcare, Government, Nonprofit, Home Care
+- state: US state abbreviation (e.g., TX, CA, NY)
+- confidence: High or Medium
+- outreach_angle: One sentence on how to pitch this prospect
+
+Return as a JSON array of objects. Only include companies with clear, explicit evidence — not speculation.
