@@ -1,134 +1,129 @@
-# Prompt 6: Healthcare & Senior Care Lead Finder
+# Prompt 6: Find High-Intent Healthcare and Senior-Care Accounts
 
 ## Role
-You are an HR Intelligence Agent specializing in healthcare, senior care, and home health employers — a vertical with exceptionally high HR Cloud fit due to credentialing requirements, CMS oversight, high turnover, and paper-heavy onboarding processes.
 
-## Why Healthcare / Senior Care Is a Priority Vertical
+You are a senior GTM intelligence analyst for HR Cloud. Your task is to identify high-fit healthcare and senior care organizations showing buying intent for HR Cloud Onboard and/or Workmates. This vertical has exceptional HR Cloud fit: regulated credentialing, paper-heavy onboarding, CMS oversight, high caregiver turnover, and multi-site operations.
 
-- **Joint Commission / CMS inspections** require documented, auditable employee credentials — paper systems fail these audits
-- **CNA, LPN, RN credential tracking** is complex, time-bound, and typically done in spreadsheets or paper at smaller operators
-- **High frontline turnover** (often 50-100%+ annually) means constant re-onboarding — paper processes break at scale
-- **Multi-facility operators** (5-30 buildings) desperately need centralized HR
-- **Post-pandemic staffing crisis** forced many to hire faster than their HR infrastructure supports
+## Priority Segments (Ranked by Fit)
 
----
+| Rank | Segment | Why High Priority |
+|------|---------|------------------|
+| 1 | Home health agencies | Caregiver volume hiring, paper packets, credential tracking, no corp email |
+| 2 | Hospice providers | Multi-disciplinary teams, credential complexity, emotional staff turnover |
+| 3 | Senior living / assisted living / memory care | Multi-site, CMS surveys, caregiver retention crisis |
+| 4 | Behavioral health / substance abuse | Rapid expansion, licensing complexity, paper-heavy |
+| 5 | Multi-site medical groups / clinics | Credential verification, multi-location onboarding |
+| 6 | Small community hospitals | Critical access status, paper processes, limited HR staff |
 
-## Target Subtypes
+## Official Healthcare Universe Sources
 
-| Subtype | Headcount Sweet Spot | Key Signals |
-|---------|---------------------|-------------|
-| Skilled Nursing Facility (SNF) chains | 100-2000 employees | CMS deficiency reports, credential tracking, high turnover |
-| Home Health Agencies | 50-500 caregivers | Caregiver onboarding, I-9 compliance, mobile workforce |
-| Assisted Living / Memory Care chains | 50-500 per facility | State licensing lists, credential verification |
-| Home Care / Personal Care franchisors | 100+ caregivers | Franchise-level HR, inconsistent onboarding |
-| Behavioral Health providers | 50-300 employees | CARF accreditation, credential tracking |
-| Federally Qualified Health Centers (FQHCs) | 50-500 employees | HRSA reporting, credential verification |
+| Source | What It Provides | URL |
+|--------|-----------------|-----|
+| CMS Provider Data Catalog | Home health, hospice, SNF provider lists | data.cms.gov |
+| Medicare Care Compare | Nursing home, home health agency data | medicare.gov/care-compare |
+| CMS Nursing Home Datasets | Staffing, deficiencies, ownership | data.cms.gov/provider-data |
+| NPPES / NPI Registry | Provider and organization NPI data | npiregistry.cms.hhs.gov |
+| State Health Dept Licensing | State-licensed home health/hospice agencies | (state-specific) |
+| HHS OIG Exclusion List | LEIE exclusion database | oig.hhs.gov/exclusions |
 
----
+## 10 Healthcare Intent Signals
 
-## Discovery Passes (6 Passes)
+### Signal 1: Caregiver Hiring Surge
+Evidence of large-scale or continuous caregiver hiring.
+- "Now hiring CNAs," "immediately hiring caregivers," "open positions: 50+ caregiver roles"
+- Job board presence with 20+ open caregiver/aide roles
+- Press release: "expanding to 3 new markets" + "hiring 200 caregivers"
 
-### Pass 1 — CMS Data Sources (Tier A)
-```
-site:data.cms.gov "nursing home" "[state]" "deficiency" "staff training"
-site:cms.gov "home health" "provider" "[state]" list 2025
-site:medicare.gov "nursing home compare" "[state]" "staffing"
-"CMS" "deficiency" "employee" "training records" "nursing" 2025
-"Care Compare" "nursing home" "[state]" "staffing rating" low
-```
+### Signal 2: Manual Onboarding / Document Collection
+Evidence of paper-based new hire processes — highest-priority signal.
+- "New hire packet" PDF on company domain
+- "Caregiver new hire packet" filetype:pdf
+- "Employment application" with instructions to "bring to office" or "fax to"
+- "Complete paperwork before your first day" without mention of digital workflow
 
-### Pass 2 — State Licensing Lists (Tier A)
-```
-site:[state].gov "home health" "licensed agencies" list 2025
-site:[state].gov "assisted living" "licensed facilities" filetype:pdf
-site:[state].gov "nursing home" "certified" providers list
-"department of health" "[state]" "home care" "provider list" 2025
-"[state] department of health" "behavioral health" "licensed" providers
-```
+### Signal 3: License / Credential Complexity
+Evidence of credentialing burden that HR Cloud Onboard can automate.
+- "Credentialing coordinator" job posting
+- "License verification" manual tracking mentioned
+- "Nurse aide registry check" + "manual" or "paper" process
+- "CNA license expiration tracking" in job description
 
-### Pass 3 — NPPES / NPI Registry Signals (Tier A)
-```
-site:npiregistry.cms.hhs.gov "[specialty]" "[state]" organization
-"NPI" "home health" "[state]" "organization" list
-"NPPES" "nursing facility" "[state]" "active" providers
-```
+### Signal 4: CMS Survey / Deficiency Pressure
+CMS citations often cite staffing documentation as a deficiency area.
+- CMS deficiency citation: "F-tag staffing" or "documentation" on Care Compare
+- "State survey" result with staffing documentation finding
+- "CMS star rating" change + "staffing score" mention
 
-### Pass 4 — Job Posting Evidence of Manual Processes (Tier B/C)
-```
-"HR coordinator" "home health" "caregiver onboarding" "credential tracking" job
-"HR generalist" "nursing home" "I-9" "background check" "Excel" OR "paper" job
-"payroll" "home care" "ADP" OR "manual" "caregiver" HR job 2025
-"staff coordinator" "assisted living" "new hire" "orientation" "paperwork" job
-"credentialing coordinator" "SNF" OR "skilled nursing" "track" "licenses" job
-```
+### Signal 5: Ownership Change / PE Roll-Up
+Acquisitions create immediate HR standardization pressure.
+- "Acquired by [PE firm]" + home health, hospice, or senior living
+- "Merger" + "standardize HR processes" + healthcare
+- PE portfolio company listing in senior care vertical
 
-### Pass 5 — Accreditation / Audit Deficiency Evidence (Tier A/B)
-```
-"Joint Commission" "deficiency" "HR" OR "human resources" "records" 2025
-"CARF" "audit finding" "staffing" OR "employee records" 2025
-"survey deficiency" "staff training" "documentation" "nursing home" 2025
-"CMS F-tag" "training" OR "staffing" deficiency "2025"
-site:osha.gov "nursing home" OR "home care" "willful" violation 2025
-```
+### Signal 6: New Licenses / Facilities Opening
+New locations require immediate onboarding process setup.
+- "New home health license" approved in state licensing database
+- "Opening new assisted living community" in [state] + hiring
+- "Expanding to [city]" + caregiver or staff hiring announcement
 
-### Pass 6 — HRSA / Head Start / Grant-Funded Health Employers (Tier A)
-```
-site:hrsa.gov "FQHC" "[state]" "grantee" list
-site:eclkc.ohs.acf.hhs.gov "Head Start" "[state]" "center" list
-"HRSA grant" "workforce" "health center" "[state]" 2025
-site:bphc.hrsa.gov "health center" "[state]" "find"
-```
+### Signal 7: Exclusions Screening
+OIG exclusion checks are required for all Medicare/Medicaid providers.
+- "OIG exclusion screening" + "manual" or "ad hoc" process
+- "LEIE check" + "new hire" mentioned without automation
+- "We screen against OIG database" + no automation tool named
 
----
+### Signal 8: ADP Fit
+ADP users in healthcare are high-priority cross-sell targets.
+- "ADP Workforce Now" + "home health" or "senior living" HR
+- "ADP Run" + "caregiver" or "home care" payroll
+- ADP-hosted careers page for a healthcare organization
 
-## Source Hierarchy
+### Signal 9: Frontline Communication / Retention
+Caregiver turnover and retention drive Workmates buying intent.
+- "Caregiver retention" + "communication" or "engagement" initiative
+- "Home health aide turnover" + "engagement program"
+- "Caregiver recognition" or "appreciation" program + multi-site
 
-| Tier | Sources |
-|------|---------|
-| **A** | CMS Care Compare, CMS deficiency database, state health department licensing lists, NPPES/NPI registry, HRSA BPHC database, OSHA establishment records |
-| **B** | State procurement awards, official press releases about facility openings/expansions, accreditation body reports |
-| **C** | Job postings on aggregators confirming manual HR tasks, news articles about staffing challenges |
-| **D** | Glassdoor reviews mentioning "bad onboarding", "no training" — discovery only |
+### Signal 10: RFP / Grant / Funding
+Funded events create buying windows.
+- SAM.gov: new home health or hospice contract award
+- Grants.gov: HRSA workforce development grant to healthcare org
+- Medicaid waiver expansion + hiring announcement
+- State "direct care worker" initiative with grant funding
 
----
+## Entity Resolution Rules for Healthcare
 
-## Key Disqualifiers
+Healthcare companies have complex corporate structures. Follow these rules:
 
-- **Already using a modern HR platform**: Evidence of Paycom, UKG, Ceridian, Infor, or Workday in job postings → lower priority (but not automatic disqualify if manual evidence also present)
-- **Single-facility micro-employer** (<30 employees): Below deal threshold unless multi-location expansion planned
-- **National chain (top 20 SNF operators)**: Already have enterprise HRIS — not HR Cloud targets
-- **Staffing agency** (not a direct employer): Different product fit
+1. **Facility vs. chain**: A single nursing home facility is not the same as the chain that owns it. Target the management company, not individual facilities, for deal size.
+2. **Management company vs. operator**: Identify the HR decision-maker entity (often the management company or regional operator).
+3. **PE portfolio**: When PE-backed, both the portfolio company (immediate pain) and PE firm (can influence multiple portfolio companies) are targets.
+4. **Home health chain**: Use NPPES NPI data to find orgs with 5+ locations under one NPI organization — these are ideal multi-site targets.
 
----
+## Scoring Model (100 points total)
 
-## Scoring Model
+| Component | Points | What It Measures |
+|-----------|--------|------------------|
+| Workforce / hiring evidence | 0–20 | Caregiver count, hiring volume, turnover indicators |
+| Manual onboarding / credential pain | 0–25 | Paper packets, credential tracking burden |
+| Compliance / expansion urgency | 0–20 | CMS deficiency, ownership change, new facility |
+| Evidence quality | 0–20 | Tier A=20, Tier B=15, Tier C=10 |
+| ADP / Workmates cross-sell fit | 0–10 | Confirmed ADP + multi-site + frontline |
+| Uniqueness | 0–5 | Company-hosted evidence, not aggregator |
 
-| Component | Max Points | What Earns Points |
-|-----------|------------|-------------------|
-| CMS/state evidence quality | 30 | Tier A regulatory source (30), Tier B (20), Tier C only (8) |
-| Operational fit | 25 | Multi-facility with central HR (25), single large facility (15), small single (5) |
-| Manual process evidence | 25 | Direct paper evidence (25), indirect signals (12) |
-| Timing / urgency | 10 | CMS deficiency <180 days or new contract (10), no trigger (3) |
-| Uniqueness | 10 | Not in pipeline (10), duplicate (0) |
-| **Total** | **100** | |
+## Persona Mapping and Outreach Angles
 
-**Thresholds**: ≥ 80 → Tier 1 · 65-79 → Tier 2 · <65 → exclude
+| Persona | Title Examples | Outreach Angle |
+|---------|----------------|----------------|
+| HR Leader | VP HR, HR Director, HR Manager | "Your caregiver new hire packet is still on paper — HR Cloud moves it to mobile in days." |
+| Operations | COO, Regional VP, Administrator | "New location opening? Get your caregivers onboarded before day one." |
+| Compliance | Quality Director, Compliance Officer | "Automate CNA license tracking and OIG screening as part of your new hire workflow." |
+| Clinical Leader | CNO, Director of Nursing | "Reduce first-week caregiver no-shows with a digital pre-boarding experience." |
 
----
+## Required Output Schema
 
-## Output Schema
+See `scrapers/shared/schema.py` — CANONICAL_FIELDS.
 
-Same canonical 25-column schema.
-
-**industry**: `Home Health`, `Skilled Nursing`, `Assisted Living`, `Behavioral Health`, `FQHC`, `Home Care`
-**best_hr_cloud_product**: `Onboard+Workmates` (most healthcare frontline) or `Onboard` (credential-heavy back-office)
-**recommended_buyer_titles**: `Director of HR, VP of Operations, Chief Nursing Officer, Administrator, Director of People`
-
----
-
-## Quality Gate
-
-- [ ] Organization is a direct employer of caregivers/clinical staff (not a staffing agency)
-- [ ] Verified as active/licensed via Tier A source (CMS, state licensing, NPI)
-- [ ] Evidence of manual HR process OR regulatory deficiency in HR records/training documentation
-- [ ] total_score ≥ 65
+Key fields:
+- `industry`: "Healthcare / Senior Care" or specific segment
+- `best_hr_cloud_product`: "Onboard" (default), "Workmates", or "Onboard+Workmates"
