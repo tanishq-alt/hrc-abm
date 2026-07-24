@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 data/*.csv
 !data/.gitkeep
+!data/nano_onboarding_MASTER.csv
 /tmp/
 *.log
 .DS_Store
