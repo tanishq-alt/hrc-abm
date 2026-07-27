@@ -6,3 +6,5 @@ lxml>=5.0.0
 scrapegraphai>=1.13.0
 openai>=1.0.0
 python-dotenv>=1.0.0
+# ABM engine (no additional installs needed — uses packages above)
+# dataclasses, typing, csv, datetime, abc are stdlib
