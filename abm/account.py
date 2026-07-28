@@ -1,6 +1,6 @@
 """Full enriched Account dataclass — the canonical ABM record."""
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Dict
 
 
 @dataclass
@@ -78,6 +78,48 @@ class Account:
     next_action: str = ""
     source_scraper: str = ""
 
+    # ── Independent scores (new model) ───────────────────────────────────────
+    intent_score: int = 0                    # 0-25
+    confidence_score: int = 0               # 0-20
+    contactability_score: int = 0           # 0-20
+    # icp_score already exists, keep it (new max = 35)
+
+    # ── Hard gates ────────────────────────────────────────────────────────────
+    hard_gate_status: bool = False
+    hard_gate_reason: str = ""
+
+    # ── Penalties ledger ──────────────────────────────────────────────────────
+    penalties: List[dict] = field(default_factory=list)   # list of {name, points}
+
+    # ── Signal quality ────────────────────────────────────────────────────────
+    signal_strength: str = ""               # high / medium / low
+    signal_confidence: str = ""             # high / medium / low
+    signal_safe_to_mention: bool = True
+    why_now: str = ""
+
+    # ── Negative evidence ────────────────────────────────────────────────────
+    negative_evidence: List[dict] = field(default_factory=list)
+    false_positive_reason: str = ""
+
+    # ── Entity resolution (extended) ─────────────────────────────────────────
+    entity_type: str = ""                   # employer / facility / parent / district / franchise / government
+    parent_company: str = ""
+    parent_domain: str = ""
+    facility_or_subsidiary: str = ""
+    identity_confidence: str = ""           # high / medium / low
+
+    # ── HRIS classification ───────────────────────────────────────────────────
+    hris_fit_category: str = ""             # integration_fit / workflow_extension_fit / possible_displacement / exact_workflow_already_solved / unknown
+
+    # ── Audit ────────────────────────────────────────────────────────────────
+    audit_status: str = ""                  # pass / pass_with_warning / return_to_research / downgrade / reject
+    audit_score: int = 0
+    audit_flags: List[str] = field(default_factory=list)
+
+    # ── Research ─────────────────────────────────────────────────────────────
+    next_research_action: str = ""
+    recheck_date: str = ""
+
 
 # CSV export columns for Apollo / CRM import
 ACCOUNT_CSV_FIELDS = [
@@ -112,4 +154,22 @@ ACCOUNT_CSV_FIELDS = [
     "recommended_cta",
     "disqualifiers",
     "next_action",
+    "intent_score",
+    "confidence_score",
+    "contactability_score",
+    "hard_gate_status",
+    "hard_gate_reason",
+    "signal_strength",
+    "signal_confidence",
+    "signal_safe_to_mention",
+    "why_now",
+    "false_positive_reason",
+    "entity_type",
+    "parent_company",
+    "parent_domain",
+    "hris_fit_category",
+    "audit_status",
+    "audit_score",
+    "next_research_action",
+    "recheck_date",
 ]

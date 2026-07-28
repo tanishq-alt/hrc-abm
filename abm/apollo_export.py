@@ -42,6 +42,20 @@ APOLLO_FIELDS = [
     "Apollo Sequence",
     "Next Action",
     "Disqualified Reason",
+    "Intent Score",
+    "Confidence Score",
+    "Contactability Score",
+    "Signal Strength",
+    "Signal Confidence",
+    "Safe to Mention",
+    "Why Now",
+    "HRIS Fit Category",
+    "Entity Type",
+    "Parent Company",
+    "Negative Evidence",
+    "Audit Status",
+    "Audit Score",
+    "Next Research Action",
 ]
 
 
@@ -72,6 +86,20 @@ def account_to_apollo_row(account: Account) -> dict:
         "Apollo Sequence":     tier_action.get("apollo_sequence", "") or "",
         "Next Action":         account.next_action,
         "Disqualified Reason": account.rejection_reason,
+        "Intent Score":          account.intent_score,
+        "Confidence Score":      account.confidence_score,
+        "Contactability Score":  account.contactability_score,
+        "Signal Strength":       account.signal_strength,
+        "Signal Confidence":     account.signal_confidence,
+        "Safe to Mention":       str(account.signal_safe_to_mention),
+        "Why Now":               account.why_now,
+        "HRIS Fit Category":     account.hris_fit_category,
+        "Entity Type":           account.entity_type,
+        "Parent Company":        account.parent_company,
+        "Negative Evidence":     "; ".join(n.get("label","") for n in (account.negative_evidence or [])),
+        "Audit Status":          account.audit_status,
+        "Audit Score":           account.audit_score,
+        "Next Research Action":  account.next_research_action,
     }
 
 

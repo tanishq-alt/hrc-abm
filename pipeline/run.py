@@ -30,6 +30,9 @@ from engine.icp import compute_icp_score, ICP_PROFILES
 from engine.scorer import CompositeScore
 from engine.committee import map_buying_committee, champion_title, economic_buyer_title
 from engine.personalizer import generate_outreach, build_first_line, SOCIAL_PROOF
+from engine.interpreter import interpret_signal
+from engine.evidence import Evidence, EvidenceLedger
+from engine.auditor import audit_account
 
 from abm.account import Account, ACCOUNT_CSV_FIELDS
 from abm.tiers import classify
@@ -153,6 +156,57 @@ def detect_modern_hris(text: str) -> str:
     return ""
 
 
+def find_negative_evidence(domain: str, combined_text: str, signal_type: str) -> list:
+    """
+    Adversarial pass: look for reasons NOT to qualify this account.
+    Returns list of dicts describing each negative signal found.
+    """
+    negatives = []
+    text_lower = combined_text.lower()
+
+    DISQUALIFIERS = {
+        "workday":          ("exact_workflow_already_solved", "Workday detected"),
+        "successfactors":   ("exact_workflow_already_solved", "SAP SuccessFactors detected"),
+        "dayforce":         ("exact_workflow_already_solved", "Ceridian Dayforce detected"),
+        "ukg pro":          ("exact_workflow_already_solved", "UKG Pro detected"),
+        "oracle hcm":       ("exact_workflow_already_solved", "Oracle HCM detected"),
+    }
+    for kw, (category, label) in DISQUALIFIERS.items():
+        if kw in text_lower:
+            negatives.append({
+                "type": "modern_hris_full_suite",
+                "hris_fit_category": category,
+                "label": label,
+                "severity": "warning",  # not a hard gate — classify, don't disqualify
+            })
+
+    # Contractor/volunteer only
+    if any(kw in text_lower for kw in ["volunteer only", "contractors only", "not for employees"]):
+        negatives.append({
+            "type": "wrong_audience",
+            "label": "Content appears to be for volunteers or contractors only",
+            "severity": "fatal",
+        })
+
+    # Staffing agency (they place workers, not buyers)
+    if any(kw in text_lower for kw in ["staffing agency", "temporary staffing", "we staff"]):
+        negatives.append({
+            "type": "staffing_agency",
+            "label": "Company appears to be a staffing agency, not an employer",
+            "severity": "warning",
+        })
+
+    # Archived/old content
+    if any(kw in text_lower for kw in ["archived", "this page is no longer", "outdated policy"]):
+        negatives.append({
+            "type": "stale_content",
+            "label": "Content may be archived or outdated",
+            "severity": "warning",
+        })
+
+    return negatives
+
+
 def run_vertical(vertical: str, state: str = "", min_score: int = 50,
                   max_accounts: int = 500) -> list[Account]:
     queries = VERTICAL_QUERIES.get(vertical, [])
@@ -197,8 +251,32 @@ def run_vertical(vertical: str, state: str = "", min_score: int = 50,
                 "fax completed", "mail completed", "paper forms", "print and sign",
             ]))
 
-            # Build primary signal
+            # Build excerpt early (needed for interpretation and signal building)
             excerpt = snippet[:200] if snippet else combined[:200]
+
+            # Negative evidence pass (before scoring)
+            neg_evidence = find_negative_evidence(canonical, combined, signal_type)
+            has_fatal_negative = any(n["severity"] == "fatal" for n in neg_evidence)
+            if has_fatal_negative:
+                print(f"  ✗ NEGATIVE EVIDENCE: {neg_evidence[0]['label'][:60]}", flush=True)
+                continue
+
+            # Signal interpretation (pure layer)
+            interp = interpret_signal(
+                signal_type=signal_type,
+                evidence_tier=tier,
+                evidence_excerpt=excerpt,
+                signal_date="",
+                freshness_score=75 if tier in ("A","B") else 50,
+                hris_incumbent=hris_incumbent,
+                adp_status=adp_status,
+                vertical=vertical,
+                signal_count=1,
+                has_contradiction=bool(neg_evidence),
+                entity_confirmed=(domain_status == "verified"),
+            )
+
+            # Build primary signal
             signal = Signal(
                 signal_type=signal_type,
                 tier=tier,
@@ -321,6 +399,21 @@ def run_vertical(vertical: str, state: str = "", min_score: int = 50,
                 linkedin_note=outreach_pkg.linkedin_connection_note,
                 next_action=tier_decision.next_action,
                 source_scraper=f"pipeline/run.py:{vertical}",
+                # New fields from skills package
+                intent_score=0,      # computed by QualificationResult in enrich.py
+                confidence_score=0,
+                contactability_score=0,
+                hard_gate_status=bool(comp.rejection_reason and "gate" in comp.rejection_reason.lower()),
+                hard_gate_reason=comp.rejection_reason if "gate" in comp.rejection_reason.lower() else "",
+                signal_strength=interp.signal_strength,
+                signal_confidence=interp.confidence,
+                signal_safe_to_mention=interp.safe_to_mention,
+                why_now=interp.why_now or "",
+                negative_evidence=neg_evidence,
+                false_positive_reason="; ".join(n["label"] for n in neg_evidence) if neg_evidence else "",
+                entity_type="employer",
+                hris_fit_category=interp.hris_fit_category,
+                next_research_action=tier_decision.next_action,
             )
 
             seen_domains.add(canonical)
@@ -381,7 +474,37 @@ def main():
                         help="Max accounts per vertical (default: 500)")
     parser.add_argument("--output", choices=["csv", "apollo", "sequences", "all"],
                         default="apollo", help="Output format")
+    parser.add_argument("--min-icp-score", type=int, default=0)
+    parser.add_argument("--min-intent-score", type=int, default=0)
+    parser.add_argument("--min-confidence-score", type=int, default=0)
+    parser.add_argument("--max-signal-age-days", type=int, default=180)
+    parser.add_argument("--require-primary-evidence", action="store_true")
+    parser.add_argument("--require-corroboration", action="store_true")
+    parser.add_argument("--audit-only", action="store_true",
+                        help="Load most recent CSV and run audit pass only")
+    parser.add_argument("--research-only", action="store_true")
+    parser.add_argument("--no-contact-enrichment", action="store_true")
+    parser.add_argument("--include-rejected", action="store_true")
     args = parser.parse_args()
+
+    if args.audit_only:
+        csvs = sorted(DATA_DIR.glob("abm_accounts_*.csv"), key=lambda p: p.stat().st_mtime)
+        if not csvs:
+            print("No abm_accounts_*.csv found. Run pipeline first.", flush=True)
+            sys.exit(1)
+        import csv as _csv
+        from engine.auditor import audit_accounts
+        with open(csvs[-1], newline="", encoding="utf-8") as f:
+            rows = list(_csv.DictReader(f))
+        audit_results = audit_accounts(rows)
+        pass_count = sum(1 for r in audit_results.values() if r.audit_status in ("pass","pass_with_warning"))
+        reject_count = sum(1 for r in audit_results.values() if r.audit_status == "reject")
+        print(f"\nAudit complete: {len(rows)} accounts")
+        print(f"  Pass: {pass_count} | Reject: {reject_count}")
+        for domain, ar in audit_results.items():
+            if ar.audit_status in ("reject", "return_to_research"):
+                print(f"  [{ar.audit_status.upper()}] {domain}: {ar.rejection_reason or ar.required_fix}")
+        sys.exit(0)
 
     verticals = list(VERTICAL_QUERIES.keys()) if args.vertical == "all" else [args.vertical]
     all_accounts: list[Account] = []

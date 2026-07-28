@@ -1,134 +1,191 @@
-"""Canonical domain verification — 7-step protocol.
-
-Returns domain_status as one of:
-  verified                  — resolves to a unique company domain
-  verified_parent_only      — domain is a parent/holding entity (not the operating brand)
-  facility_no_unique_domain — location/facility without its own domain
-  unresolved                — could not confirm a real company domain
 """
+Domain and entity resolver.
+Returns structured DomainResolution objects.
+Legacy verify_domain() kept for backward compat.
+"""
+from dataclasses import dataclass, field
+from typing import Optional
 from urllib.parse import urlparse
+import re
 
-# Step 2: manual corrections (common mis-parses)
-DOMAIN_CORRECTIONS = {
-    "workforcenow.adp.com": "adp.com",
-    "jobs.lever.co": "lever.co",
-    "boards.greenhouse.io": "greenhouse.io",
-    "apply.workable.com": "workable.com",
-    "careers.jobvite.com": "jobvite.com",
-    "jobs.ashbyhq.com": "ashbyhq.com",
-    "recruiting.myapps.paychex.com": "paychex.com",
+
+@dataclass
+class DomainResolution:
+    canonical_company_name: str = ""
+    canonical_domain: str = ""
+    entity_type: str = "employer"        # employer / facility / parent / district / franchise / government / unknown
+    parent_company: str = ""
+    parent_domain: str = ""
+    facility_or_subsidiary: str = ""
+    domain_status: str = "unresolved"   # verified / verified_parent_only / facility_no_unique_domain /
+                                         # subsidiary_verified / government_entity_verified /
+                                         # school_or_district_verified / franchise_parent_verified /
+                                         # unresolved / non_employer_host / duplicate
+    identity_confidence: str = "low"    # high / medium / low
+    verification_evidence: str = ""
+    dedupe_key: str = ""
+    notes: str = ""
+
+
+# ── Host blocklists ───────────────────────────────────────────────────────────
+CDN_HOSTS = {
+    "s3.amazonaws.com", "cloudfront.net", "storage.googleapis.com",
+    "blob.core.windows.net", "r2.dev",
 }
 
-# Step 3: CDN / generic hosting — not real company domains
-GENERIC_HOSTS = {
-    "s3.amazonaws.com",
-    "hubspotusercontent.com",
-    "squarespace.com",
-    "webflow.io",
-    "webflow.com",
-    "wixsite.com",
-    "hibu.com",
-    "sharepoint.com",
-    "drive.google.com",
-    "dropbox.com",
-    "docsend.com",
-    "cloudfront.net",
-    "fastly.net",
-    "rackcdn.com",
-    "azurewebsites.net",
-    "netlify.app",
-    "vercel.app",
-    "pages.dev",
-    "github.io",
-    "wordpress.com",
-    "blogspot.com",
-    "medium.com",
-    "substack.com",
+JOB_BOARDS = {
+    "linkedin.com", "indeed.com", "glassdoor.com", "ziprecruiter.com",
+    "monster.com", "careerbuilder.com", "simplyhired.com", "dice.com",
+    "builtin.com", "handshake.com", "wellfound.com",
 }
 
-# Known parent / holding-company indicators in domain
-PARENT_INDICATORS = {
-    "holdings", "group", "capital", "partners", "ventures", "associates",
-    "corp", "llc", "inc", "co.",
+ATS_HOSTS = {
+    "greenhouse.io", "lever.co", "workday.com", "myworkdayjobs.com",
+    "icims.com", "taleo.net", "jobvite.com", "smartrecruiters.com",
+    "breezy.hr", "recruitee.com", "pinpoint.co", "ashbyhq.com",
+    "bamboohr.com", "rippling.com", "gusto.com", "paycom.com",
+    "paylocity.com",
 }
 
-# Job-board / aggregator domains that are not employer domains
-JOB_BOARD_DOMAINS = {
-    "indeed.com", "linkedin.com", "glassdoor.com", "ziprecruiter.com",
-    "monster.com", "careerbuilder.com", "simplyhired.com", "salary.com",
-    "payscale.com", "handshake.com", "wellfound.com", "seek.com",
-    "workable.com", "lever.co", "greenhouse.io", "jobvite.com",
-    "ashbyhq.com", "smartrecruiters.com", "icims.com", "taleo.net",
+PAGE_HOSTS = {
+    "wordpress.com", "squarespace.com", "wix.com", "weebly.com",
+    "medium.com", "substack.com", "blogspot.com", "sites.google.com",
 }
 
+NON_EMPLOYER_HOSTS = CDN_HOSTS | JOB_BOARDS | ATS_HOSTS | PAGE_HOSTS
 
-def _extract_netloc(url: str) -> str:
-    """Step 1: extract netloc and strip www."""
+GENERIC_GOV_PATTERNS = [
+    r"\.gov$", r"\.k12\.[a-z]{2}\.us$", r"\.edu$",
+    r"county\.[a-z]{2}\.us$", r"cityof[a-z]+\.com$",
+]
+
+FRANCHISE_INDICATORS = ["franchise", "franchisee", "operator", "territory"]
+
+
+def _netloc(url: str) -> str:
     try:
-        parsed = urlparse(url if "://" in url else f"https://{url}")
-        host = parsed.netloc.lower()
-        if host.startswith("www."):
-            host = host[4:]
-        return host
+        parsed = urlparse(url if "://" in url else "https://" + url)
+        return parsed.netloc.lower().replace("www.", "")
     except Exception:
         return ""
 
 
-def verify_domain(url: str) -> tuple[str, str]:
-    """Run the 7-step domain verification protocol.
-
-    Args:
-        url: Raw URL or domain string to verify.
-
-    Returns:
-        (canonical_domain, domain_status) tuple.
-        domain_status is one of: verified | verified_parent_only |
-                                  facility_no_unique_domain | unresolved
-    """
-    # Step 1: extract netloc
-    host = _extract_netloc(url)
-    if not host:
-        return ("", "unresolved")
-
-    # Step 2: apply corrections
-    if host in DOMAIN_CORRECTIONS:
-        host = DOMAIN_CORRECTIONS[host]
-
-    # Step 3: check CDN/generic → unresolved
-    for generic in GENERIC_HOSTS:
-        if host == generic or host.endswith("." + generic):
-            return (host, "facility_no_unique_domain")
-
-    # Step 3b: job board domains → unresolved
-    for jb in JOB_BOARD_DOMAINS:
-        if host == jb or host.endswith("." + jb):
-            return (host, "unresolved")
-
-    # Step 4: check for empty or IP-only
-    import re
-    if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", host):
-        return (host, "unresolved")
-
-    # Step 5: collapse to root domain for dedup purposes
+def _root_domain(host: str) -> str:
+    """Collapse subdomains to root domain."""
     parts = host.split(".")
-    # Preserve k12.XX.us school district domains
-    if len(parts) >= 4 and parts[-3] == "k12":
-        canonical = host
-    elif len(parts) >= 3 and parts[0] not in (
-        "my", "cdn", "static", "uploads", "docs", "files",
-        "assets", "api", "mail", "app", "portal", "careers",
-    ):
-        canonical = ".".join(parts[-2:])
+    if len(parts) >= 3:
+        # Keep known two-part TLDs
+        if parts[-2] in ("k12", "co", "com", "org", "gov", "edu"):
+            return ".".join(parts[-3:])
+        return ".".join(parts[-2:])
+    return host
+
+
+def _is_ats_subdomain(host: str) -> Optional[str]:
+    """Detect ATS subdomains like jobs.company.com or company.greenhouse.io.
+    Returns employer root if detectable, else None."""
+    for ats in ATS_HOSTS:
+        if host.endswith("." + ats) or host == ats:
+            # e.g. acmecorp.greenhouse.io → acmecorp
+            subdomain = host.replace("." + ats, "").replace(ats, "")
+            if subdomain and "." not in subdomain:
+                return subdomain  # candidate name, not a domain
+            return None
+    # subdomain patterns like jobs.employer.com, careers.employer.com
+    ATS_SUBDOMAINS = {"jobs", "careers", "hiring", "apply", "recruit", "talent"}
+    parts = host.split(".")
+    if len(parts) >= 3 and parts[0] in ATS_SUBDOMAINS:
+        return ".".join(parts[1:])
+    return None
+
+
+def _is_government(host: str) -> bool:
+    for pat in GENERIC_GOV_PATTERNS:
+        if re.search(pat, host):
+            return True
+    return False
+
+
+def _is_school_district(host: str) -> bool:
+    return bool(re.search(r"\.k12\.", host))
+
+
+def resolve_domain(url: str, source_title: str = "", vertical: str = "") -> DomainResolution:
+    """
+    Full structured domain resolution.
+    Returns DomainResolution with entity_type, status, and confidence.
+    """
+    res = DomainResolution()
+    host = _netloc(url)
+    if not host:
+        res.domain_status = "unresolved"
+        res.notes = "Cannot parse URL"
+        return res
+
+    root = _root_domain(host)
+
+    # Step 1: ATS subdomain correction FIRST (before blanket blocklist)
+    # e.g. acmecorp.greenhouse.io → extract employer name "acmecorp"
+    employer_guess = _is_ats_subdomain(host)
+    if employer_guess:
+        res.notes = f"ATS subdomain corrected from {host}"
+        if "." in employer_guess:
+            res.canonical_domain = employer_guess
+        else:
+            # Only have a name, not a confirmed domain
+            res.canonical_company_name = employer_guess
+            res.domain_status = "unresolved"
+            res.notes += " — employer domain not confirmed"
+            return res
+
+    # Step 2: Reject non-employer hosts (CDN, job boards, ATS roots, page hosts)
+    if not employer_guess:
+        for nh in NON_EMPLOYER_HOSTS:
+            if host.endswith(nh) or root == nh:
+                res.domain_status = "non_employer_host"
+                res.notes = f"Blocked host: {nh}"
+                return res
+
+    if not employer_guess:
+        res.canonical_domain = root
+
+    # Step 3: CDN / document host check on the resolved domain
+    for cdn in CDN_HOSTS:
+        if cdn in host:
+            res.domain_status = "non_employer_host"
+            res.notes = f"CDN/document host: {cdn}"
+            return res
+
+    # Step 4: Government entity
+    if _is_government(res.canonical_domain or root):
+        res.entity_type = "government"
+        res.domain_status = "government_entity_verified"
+        res.identity_confidence = "medium"
+        res.verification_evidence = f"Government TLD pattern: {res.canonical_domain}"
+    # Step 5: School/district
+    elif _is_school_district(host):
+        res.entity_type = "district"
+        res.domain_status = "school_or_district_verified"
+        res.identity_confidence = "high"
+        res.verification_evidence = f"k12 domain: {host}"
     else:
-        canonical = host
+        res.entity_type = "employer"
+        res.domain_status = "verified"
+        res.identity_confidence = "medium"
 
-    # Step 6: check for parent/holding company signals in domain name
-    domain_lower = canonical.lower()
-    if any(indicator in domain_lower for indicator in PARENT_INDICATORS):
-        return (canonical, "verified_parent_only")
+    res.canonical_domain = res.canonical_domain or root
+    res.dedupe_key = res.canonical_domain.lower()
+    return res
 
-    # Step 7: return verified
-    return (canonical, "verified")
+
+# ── Backward-compatible function ──────────────────────────────────────────────
+def verify_domain(url: str) -> tuple:
+    """
+    Legacy interface for backward compat with pipeline/run.py.
+    Returns (canonical_domain, domain_status).
+    """
+    res = resolve_domain(url)
+    return res.canonical_domain, res.domain_status
 
 
 def is_resolvable(domain: str) -> bool:
