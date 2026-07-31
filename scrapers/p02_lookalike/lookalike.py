@@ -403,5 +403,116 @@ def _save(leads: list):
         writer.writerows(leads)
 
 
+def run_lookalike(seed_inputs: list, min_score: int = 70) -> list:
+    """
+    Callable entry point for pipeline/run.py --lookalike flag.
+    seed_inputs: list of domain strings (e.g. ["acme.com", "bestcare.org"])
+    min_score: minimum total score to include (default 70)
+    Returns list of canonical row dicts saved to data/lookalike_leads.csv.
+    """
+    seed_domains = [s.strip() for s in seed_inputs if s.strip()]
+    print("Lookalike Prospect Finder", flush=True)
+    print(f"Seeds: {seed_domains}", flush=True)
+    print(f"Min total score: {min_score}", flush=True)
+    print("=" * 70, flush=True)
+
+    print("\n[Phase 1-3] Building Seed DNA model...", flush=True)
+    seed_dna = build_seed_dna_model(seed_domains)
+    dominant = seed_dna.get("dominant_traits", [])
+    print(f"Dominant traits: {dominant}", flush=True)
+
+    queries = generate_candidate_queries(seed_dna)
+    print(f"\n[Phase 4] Generated {len(queries)} candidate queries", flush=True)
+
+    seen_domains: set = set()
+    leads: list = []
+
+    for i, query in enumerate(queries, 1):
+        print(f"\n[{i}/{len(queries)}] {query[:80]}...", flush=True)
+        results = ddg_search(query, max_results=10)
+        print(f"  DDG: {len(results)} results", flush=True)
+
+        for r in results[:5]:
+            url = r.get("href", "")
+            if not url or should_skip(url):
+                continue
+
+            canonical, domain_status = verify_domain(url)
+            if not canonical or canonical in seen_domains:
+                continue
+
+            title = r.get("title", "")
+            snippet = r.get("body", "")
+
+            print(f"  Fetching: {url[:80]}...", flush=True)
+            page_text = fetch_text(url)
+            combined = snippet + " " + page_text
+
+            similarity_score, total_score = calculate_similarity(combined, seed_dna)
+            if total_score < min_score:
+                continue
+
+            nearest_seed = find_nearest_seed_neighbor(combined, seed_domains)
+            has_adp = bool(re.search(r"ADP\s+(Workforce\s+Now|Run|TotalSource)", combined, re.I))
+            company_name = extract_company_name(title, url)
+
+            if total_score >= 85:
+                confidence = "confirmed"
+                tier_label = "Elite"
+            elif total_score >= 78:
+                confidence = "high"
+                tier_label = "Strong"
+            else:
+                confidence = "medium"
+                tier_label = "Needs timing"
+
+            row = make_row_from_dict({
+                "company_name": company_name,
+                "canonical_domain": canonical,
+                "country": "US",
+                "primary_signal_category": f"lookalike_of_{nearest_seed}",
+                "strongest_signal_summary": f"Similarity {similarity_score}/100 to seed {nearest_seed} — {tier_label}",
+                "strongest_signal_url": url,
+                "adp_status": "confirmed" if has_adp else "not_checked",
+                "best_hr_cloud_product": "Onboard+Workmates" if has_adp else "Onboard",
+                "fit_score": similarity_score,
+                "intent_score": 0,
+                "evidence_score": similarity_score,
+                "timing_score": 0,
+                "uniqueness_score": 0,
+                "total_score": total_score,
+                "confidence": confidence,
+                "outreach_angle": (
+                    f"Your org shares key traits with {nearest_seed} — "
+                    "similar workforce, similar onboarding complexity."
+                ),
+                "recommended_buyer_titles": "VP HR, CHRO, Director of Human Resources, COO",
+                "disqualifiers_or_risks": (
+                    "Verify operational similarity to seed. "
+                    "Confirm hiring activity and workforce size."
+                ),
+            })
+
+            seen_domains.add(canonical)
+            leads.append(row)
+            print(f"  ✓ {company_name} [{canonical}] score={total_score} nearest={nearest_seed}", flush=True)
+
+        if i % 5 == 0 and leads:
+            _save(leads)
+            print(f"  ── checkpoint: {len(leads)} leads ──", flush=True)
+
+        time.sleep(2)
+
+    _save(leads)
+    print(f"\n{'='*70}", flush=True)
+    print(f"Total lookalike leads: {len(leads)} → {OUTPUT_FILE}", flush=True)
+    elite = sum(1 for l in leads if l.get("total_score", 0) >= 85)
+    strong = sum(1 for l in leads if 78 <= l.get("total_score", 0) < 85)
+    print(f"  Elite (85+): {elite}", flush=True)
+    print(f"  Strong (78-84): {strong}", flush=True)
+    print(f"  Needs timing (70-77): {len(leads) - elite - strong}", flush=True)
+    return leads
+
+
 if __name__ == "__main__":
     main()

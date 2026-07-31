@@ -111,6 +111,26 @@ VERTICAL_QUERIES = {
         ('site:sam.gov "human resources" "HRIS" OR "onboarding" contract award 2025', "sam_contract_award", "A"),
         ('"transit authority" "new hire" "onboarding" "forms" filetype:pdf', "pdf_new_hire_packet", "A"),
         ('"special district" "HR coordinator" "ADP" job 2025', "adp_confirmed", "C"),
+        ('"port authority" "new employee" "onboarding" filetype:pdf', "pdf_new_hire_packet", "A"),
+        ('"state agency" "HRIS" RFP OR "competitive solicitation" 2025', "rfp_hris", "A"),
+        ('"ADP Workforce Now" "county government" "HR generalist" job 2025', "adp_confirmed", "B"),
+    ],
+    "utilities": [
+        ('"electric utility" "new hire packet" filetype:pdf site:.com', "pdf_new_hire_packet", "A"),
+        ('"utility" "new employee orientation" "complete and return" filetype:pdf', "pdf_new_hire_packet", "A"),
+        ('"gas utility" "new hire" "safety acknowledgment" filetype:pdf', "pdf_new_hire_packet", "A"),
+        ('"water utility" OR "wastewater" "new hire packet" filetype:pdf', "pdf_new_hire_packet", "A"),
+        ('"NERC" "compliance" "training" "records" "utility" 2025', "credential_complexity", "B"),
+        ('"OSHA" "willful" OR "repeat" violation utility "lineworker" 2025', "osha_citation", "A"),
+        ('"ADP Workforce Now" "utility" OR "electric" OR "gas" HR coordinator job', "adp_confirmed", "B"),
+        ('"utility" "HR director" "ADP" "payroll" "onboarding" job 2025', "adp_confirmed", "B"),
+        ('"investor-owned utility" "HR" "HRIS" RFP 2025', "rfp_hris", "A"),
+        ('"municipal utility" "new hire" "onboarding" "forms" filetype:pdf', "pdf_new_hire_packet", "A"),
+        ('"rural electric cooperative" "new hire" "orientation" filetype:pdf', "pdf_new_hire_packet", "A"),
+        ('"utility" "acquired" OR "merger" "HR" "onboarding" "standardize" 2025', "acquisition", "C"),
+        ('"new HR director" "utility" OR "electric" OR "energy" 2025', "new_hr_leader", "C"),
+        ('"public works" "new employee" "complete and return" filetype:pdf', "pdf_new_hire_packet", "A"),
+        ('"lineworker" OR "line technician" "onboarding" "credential" "training" job 2025', "credential_complexity", "B"),
     ],
 }
 
@@ -470,6 +490,10 @@ def main():
     parser.add_argument("--state", default="", help="Two-letter state code filter")
     parser.add_argument("--min-score", type=int, default=50,
                         help="Minimum composite score to include (default: 50)")
+    parser.add_argument("--lookalike", metavar="SEEDS",
+                        help="Comma-separated seed domains or company names to run lookalike finder")
+    parser.add_argument("--lookalike-min-score", type=int, default=70,
+                        help="Minimum lookalike total score (default: 70)")
     parser.add_argument("--max-accounts", type=int, default=500,
                         help="Max accounts per vertical (default: 500)")
     parser.add_argument("--output", choices=["csv", "apollo", "sequences", "all"],
@@ -504,6 +528,14 @@ def main():
         for domain, ar in audit_results.items():
             if ar.audit_status in ("reject", "return_to_research"):
                 print(f"  [{ar.audit_status.upper()}] {domain}: {ar.rejection_reason or ar.required_fix}")
+        sys.exit(0)
+
+    # Lookalike mode
+    if args.lookalike:
+        from scrapers.p02_lookalike.lookalike import run_lookalike
+        seeds = [s.strip() for s in args.lookalike.split(",") if s.strip()]
+        print(f"\nLookalike finder — seeds: {seeds}", flush=True)
+        run_lookalike(seed_inputs=seeds, min_score=args.lookalike_min_score)
         sys.exit(0)
 
     verticals = list(VERTICAL_QUERIES.keys()) if args.vertical == "all" else [args.vertical]

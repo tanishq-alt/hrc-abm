@@ -44,77 +44,113 @@ class ICPScore:
 
 ICP_PROFILES = {
     "healthcare": {
-        "ideal_employee_ranges": ["50-200", "200-500", "500-2000"],
+        "ideal_employee_ranges": ["100-500", "500-2000", "2000-10000"],
         "ideal_industries": ["Home Health", "Hospice", "Skilled Nursing", "Assisted Living",
-                             "Behavioral Health", "FQHC", "Home Care", "Senior Living"],
+                             "Behavioral Health", "FQHC", "Home Care", "Senior Living",
+                             "Health System", "Multi-Site Care"],
         "high_fit_signals": ["pdf_new_hire_packet", "caregiver_hiring_surge",
                              "cms_deficiency", "credential_complexity", "adp_confirmed"],
-        "disqualifying_signals": ["workday", "successfactors", "ceridian", "infor"],
+        "disqualifying_signals": ["successfactors", "ceridian", "infor"],
         "description": "Multi-site care provider with frontline caregiver workforce",
+        "enterprise_signals": ["large health system", "regional health", "national provider",
+                               "hundreds of locations", "thousands of caregivers"],
     },
     "education": {
-        "ideal_employee_ranges": ["50-200", "200-500", "500-2000"],
+        "ideal_employee_ranges": ["200-1000", "1000-5000", "5000-20000"],
         "ideal_industries": ["K-12 School District", "Charter School Network",
-                             "Private School", "Head Start", "Community College"],
+                             "Private School", "Head Start", "Community College",
+                             "University", "Higher Education", "State University System"],
         "high_fit_signals": ["pdf_new_hire_packet", "seasonal_hiring", "rfp_hris",
                              "adp_confirmed", "credential_complexity"],
         "disqualifying_signals": ["frontline education", "powerschool hris"],
-        "description": "District or network with seasonal hiring surge and paper onboarding",
+        "description": "District, network, or institution with seasonal hiring surge and paper onboarding",
+        "enterprise_signals": ["largest district", "multi-campus", "state university",
+                               "community college system", "charter management organization"],
     },
     "manufacturing": {
-        "ideal_employee_ranges": ["100-500", "500-2000"],
-        "ideal_industries": ["Manufacturing", "Logistics", "Distribution", "Construction"],
+        "ideal_employee_ranges": ["200-1000", "1000-5000", "5000-50000"],
+        "ideal_industries": ["Manufacturing", "Logistics", "Distribution", "Construction",
+                             "Food & Beverage", "Automotive", "Aerospace", "Defense",
+                             "Chemical", "Pharmaceutical Manufacturing"],
         "high_fit_signals": ["osha_citation", "adp_confirmed", "frontline_comm_gap",
                              "job_manual_task", "acquisition"],
         "disqualifying_signals": ["workday", "ukg", "kronos"],
-        "description": "Plant-floor employer with hourly workforce and OSHA compliance burden",
+        "description": "Plant-floor employer with large hourly workforce and OSHA compliance burden",
+        "enterprise_signals": ["multiple plants", "global operations", "PE-backed",
+                               "enterprise manufacturing", "thousands of hourly workers"],
     },
     "nonprofit": {
-        "ideal_employee_ranges": ["50-200", "200-500"],
-        "ideal_industries": ["Nonprofit", "Social Services", "Faith-Based", "Human Services"],
+        "ideal_employee_ranges": ["100-500", "500-2000", "2000-10000"],
+        "ideal_industries": ["Nonprofit", "Social Services", "Faith-Based", "Human Services",
+                             "Community Action", "Healthcare Nonprofit", "Education Nonprofit",
+                             "National Nonprofit", "United Way", "Red Cross"],
         "high_fit_signals": ["pdf_new_hire_packet", "grant_award", "new_hr_leader",
                              "adp_confirmed", "job_manual_task"],
         "disqualifying_signals": ["bamboohr", "rippling", "gusto"],
-        "description": "Grant-funded org with lean HR team and paper-heavy onboarding",
+        "description": "Mid-to-large nonprofit with multi-program structure and compliance-heavy onboarding",
+        "enterprise_signals": ["national chapter", "multi-state", "federal grants",
+                               "thousands of volunteers and staff", "major foundation"],
     },
     "government": {
-        "ideal_employee_ranges": ["50-500", "500-2000"],
+        "ideal_employee_ranges": ["100-1000", "1000-10000", "10000+"],
         "ideal_industries": ["County Government", "Municipality", "Special District",
-                             "Transit Authority", "Utilities"],
+                             "Transit Authority", "State Agency", "Federal Contractor",
+                             "Public Works", "Port Authority"],
         "high_fit_signals": ["rfp_hris", "pdf_new_hire_packet", "sam_contract_award",
                              "adp_confirmed", "seasonal_hiring"],
         "disqualifying_signals": ["neogov", "tyler technologies"],
-        "description": "Local/county government with procurement-driven buying and paper onboarding",
+        "description": "Local/state government with procurement-driven buying and paper onboarding at scale",
+        "enterprise_signals": ["large county", "major city", "state-level", "transit authority",
+                               "port authority", "thousands of public employees"],
+    },
+    "utilities": {
+        "ideal_employee_ranges": ["200-1000", "1000-5000", "5000-50000"],
+        "ideal_industries": ["Electric Utility", "Gas Utility", "Water Utility",
+                             "Public Works", "Energy Company", "Municipal Utility",
+                             "Investor-Owned Utility", "Rural Electric Cooperative",
+                             "Wastewater", "Telecommunications Infrastructure"],
+        "high_fit_signals": ["osha_citation", "pdf_new_hire_packet", "adp_confirmed",
+                             "credential_complexity", "seasonal_hiring", "acquisition"],
+        "disqualifying_signals": ["workday", "successfactors"],
+        "description": "Regulated utility with unionized field workforce, NERC compliance, and credential-heavy onboarding",
+        "enterprise_signals": ["investor-owned utility", "regional utility", "thousands of field workers",
+                               "multi-state service territory", "NERC reliability", "union contract"],
     },
 }
 
-# Employee range points
+# Employee range points — minimum 100, enterprise-inclusive
 EMPLOYEE_RANGE_SCORES = {
-    "1-25":      0,
-    "25-50":     5,
-    "50-100":    18,
-    "100-200":   25,
-    "200-500":   30,
-    "500-1000":  25,
-    "1000-2000": 20,
-    "2000-5000": 12,
-    "5000+":     5,
+    "1-25":       0,    # below floor
+    "25-50":      0,    # below floor
+    "50-100":     0,    # below floor
+    "100-200":   15,    # acceptable entry
+    "200-500":   22,    # good fit
+    "500-1000":  30,    # sweet spot (max)
+    "1000-2000": 28,    # strong fit
+    "2000-5000": 22,    # enterprise — high value
+    "5000-10000":16,    # large enterprise
+    "10000+":    10,    # enterprise — complex but winnable
 }
 
 MULTI_LOCATION_BONUS = 8
 FRONTLINE_WORKFORCE_BONUS = 6
 US_BASED_BONUS = 4
+ENTERPRISE_SCALE_BONUS = 5      # 1000+ employees across multiple locations
 
 
 def score_firmographic(employee_range: str, industry: str, vertical: str,
                         is_multi_location: bool, is_frontline: bool,
-                        country: str = "US") -> tuple[int, list]:
+                        country: str = "US", is_enterprise: bool = False) -> tuple[int, list]:
     """Score firmographic fit (0-30)."""
     notes = []
     score = 0
 
-    # Employee range
-    emp_score = EMPLOYEE_RANGE_SCORES.get(employee_range, 10)
+    # Employee range — hard floor at 100
+    if employee_range in ("1-25", "25-50", "50-100"):
+        notes.append(f"Employee range {employee_range}: below minimum floor (100)")
+        return 0, notes
+
+    emp_score = EMPLOYEE_RANGE_SCORES.get(employee_range, 12)
     score += emp_score
     notes.append(f"Employee range {employee_range}: +{emp_score}")
 
@@ -136,6 +172,11 @@ def score_firmographic(employee_range: str, industry: str, vertical: str,
     if is_frontline:
         score += FRONTLINE_WORKFORCE_BONUS
         notes.append(f"Frontline/hourly workforce: +{FRONTLINE_WORKFORCE_BONUS}")
+
+    # Enterprise scale bonus
+    if is_enterprise or employee_range in ("1000-2000", "2000-5000", "5000-10000", "10000+"):
+        score += ENTERPRISE_SCALE_BONUS
+        notes.append(f"Enterprise scale: +{ENTERPRISE_SCALE_BONUS}")
 
     # Country
     if country == "US":

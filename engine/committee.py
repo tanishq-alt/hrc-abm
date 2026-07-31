@@ -192,6 +192,44 @@ COMMITTEE_TEMPLATES = {
             linkedin_note="Hi {first_name} — I help government HR specialists eliminate manual data entry from new hire onboarding. Happy to show you how.",
         ),
     ],
+
+    "utilities": [
+        PersonaTarget(
+            role="champion",
+            title_options=["Director of Human Resources", "HR Director", "VP of HR",
+                           "Chief People Officer", "Director of Workforce Development",
+                           "Director of Labor Relations"],
+            priority=1,
+            key_concerns=["lineworker credential tracking", "NERC compliance documentation",
+                          "union onboarding consistency", "safety training records",
+                          "seasonal and storm-crew hiring", "field worker communication"],
+            best_hook="Your lineworkers complete safety acknowledgments on paper — we digitize the entire process and make your NERC audit a 30-minute export.",
+            objection_to_prepare="We have a union contract / We're going through a system evaluation",
+            linkedin_note="Hi {first_name} — I work with utility HR teams modernizing onboarding and safety documentation for field workforces. We've helped {industry} organizations make NERC audits painless. Worth a quick conversation?",
+        ),
+        PersonaTarget(
+            role="economic_buyer",
+            title_options=["CEO", "COO", "CFO", "VP of Operations",
+                           "Chief Operating Officer", "General Manager"],
+            priority=2,
+            key_concerns=["NERC compliance liability", "OSHA recordkeeping risk", "operational efficiency",
+                          "storm crew onboarding speed", "cost per regulatory finding"],
+            best_hook="One NERC violation can cost $1M+ per day. Digital onboarding at {company} makes compliance documentation automatic and audit-ready.",
+            objection_to_prepare="We have IT/procurement constraints / Budget is tied up in grid modernization",
+            linkedin_note="Hi {first_name} — helping utility executives reduce NERC and OSHA compliance exposure through digital workforce onboarding. Happy to share the ROI model.",
+        ),
+        PersonaTarget(
+            role="influencer",
+            title_options=["HR Generalist", "HR Coordinator", "Safety Coordinator",
+                           "Training Coordinator", "Workforce Development Specialist"],
+            priority=3,
+            key_concerns=["paper safety forms", "tracking training completions", "credential expiration alerts",
+                          "storm crew documentation", "I-9 compliance for seasonal hires"],
+            best_hook="Stop tracking lineworker certifications in spreadsheets — we send automatic expiration alerts and log every training completion with a timestamp.",
+            objection_to_prepare="We already have a process / This would require IT approval",
+            linkedin_note="Hi {first_name} — I help HR coordinators at utilities automate credential tracking and safety documentation. Happy to show you how it works.",
+        ),
+    ],
 }
 
 # Default template for unrecognized verticals
