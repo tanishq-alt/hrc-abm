@@ -7,6 +7,8 @@ Usage (CLI):
   python scrapegraph_agent.py --module adp_confirmed
   python scrapegraph_agent.py --module rfp_rfq
   python scrapegraph_agent.py --module high_intent
+  python scrapegraph_agent.py --module agent_reach        # Agent-Reach: Reddit/GitHub/web/RSS
+  python scrapegraph_agent.py --module agent_reach_web    # web-only (Jina Reader, no auth)
   python scrapegraph_agent.py --module all
 
 Usage (ScrapeGraph Cloud):
@@ -18,6 +20,14 @@ Environment variables:
   OPENAI_API_KEY     — required for ScrapeGraph LLM extraction
   MODULE             — override --module flag (for cloud deployments)
   MAX_RESULTS        — cap total leads per run (default: 100)
+
+Agent-Reach channels available (zero-config):
+  web       — any URL via Jina Reader (no API key needed)
+  rss       — RSS/Atom procurement feeds
+  github    — GitHub repo search via gh CLI
+  reddit    — Reddit search via rdt-cli or OpenCLI (requires login)
+  twitter   — Twitter/X via twitter-cli or OpenCLI (requires login)
+  linkedin  — LinkedIn via linkedin-scraper-mcp
 """
 
 import argparse
@@ -34,6 +44,9 @@ MODULE_MAP = {
     "adp_confirmed":     BASE / "scrapers/adp_confirmed/adp_finder.py",
     "rfp_rfq":           BASE / "scrapers/rfp_rfq/rfp_finder.py",
     "high_intent":       BASE / "scrapers/high_intent/intent_signals.py",
+    # Agent-Reach powered channels
+    "agent_reach":       BASE / "scrapers/agent_reach_signals/signal_finder.py",
+    "agent_reach_web":   BASE / "scrapers/agent_reach_signals/signal_finder.py",
 }
 
 OUTPUT_MAP = {
@@ -41,6 +54,13 @@ OUTPUT_MAP = {
     "adp_confirmed":     BASE / "data/adp_confirmed_leads.csv",
     "rfp_rfq":           BASE / "data/rfp_rfq_leads.csv",
     "high_intent":       BASE / "data/high_intent_leads.csv",
+    "agent_reach":       BASE / "data/agent_reach_leads.csv",
+    "agent_reach_web":   BASE / "data/agent_reach_leads.csv",
+}
+
+# Extra args per module when running as subprocess
+MODULE_EXTRA_ARGS = {
+    "agent_reach_web": ["--channel", "web"],
 }
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -62,8 +82,9 @@ def run_module(module: str) -> dict:
     print(f"[ScrapeGraph Agent] Running module: {module}", flush=True)
     print(f"[ScrapeGraph Agent] Script: {script}", flush=True)
 
+    extra_args = MODULE_EXTRA_ARGS.get(module, [])
     result = subprocess.run(
-        [sys.executable, "-u", str(script)],
+        [sys.executable, "-u", str(script)] + extra_args,
         capture_output=False,
         text=True,
     )
@@ -115,10 +136,19 @@ def run_with_scrapegraph(module: str) -> dict:
                 "https://duckduckgo.com/?q=%22ADP+Workforce+Now%22+%22HR+coordinator%22+job&ia=web",
             ],
             "rfp_rfq": [
-                "https://sam.gov/search/?index=opp&q=HRIS&dateRange=custom&start=2025-01-01",
+                "https://sam.gov/search/?index=opp&q=HRIS&dateRange=custom&start=2026-01-01",
             ],
             "high_intent": [
                 "https://duckduckgo.com/?q=%22evaluating+HRIS%22+OR+%22looking+for+HR+software%22&ia=web",
+            ],
+            "agent_reach": [
+                "https://r.jina.ai/https://www.rfpmart.com/hr-services-rfp-government-contract.html",
+                "https://r.jina.ai/https://www.instantmarkets.com/q/hris",
+                "https://r.jina.ai/https://www.bidnetdirect.com/new-york/solicitations/open-bids/statewide/Human-Resources-Information-System-HRIS/444101967368",
+            ],
+            "agent_reach_web": [
+                "https://r.jina.ai/https://www.rfpmart.com/hr-services-rfp-government-contract.html",
+                "https://r.jina.ai/https://www.instantmarkets.com/q/hris",
             ],
         }
 

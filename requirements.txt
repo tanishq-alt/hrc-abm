@@ -8,3 +8,10 @@ openai>=1.0.0
 python-dotenv>=1.0.0
 # ABM engine (no additional installs needed — uses packages above)
 # dataclasses, typing, csv, datetime, abc are stdlib
+
+# Agent-Reach — universal internet access (Twitter, Reddit, YouTube, GitHub, LinkedIn, RSS, web)
+feedparser>=6.0
+loguru>=0.7
+pyyaml>=6.0
+rich>=13.0
+yt-dlp[default]>=2026.07.04

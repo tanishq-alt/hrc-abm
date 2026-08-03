@@ -22,7 +22,10 @@ from pathlib import Path
 from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
-from duckduckgo_search import DDGS
+try:
+    from ddgs import DDGS
+except ImportError:
+    from duckduckgo_search import DDGS
 
 OUTPUT_FILE = Path(__file__).parent.parent.parent / "data" / "rfp_rfq_leads.csv"
 OUTPUT_FILE.parent.mkdir(exist_ok=True)
@@ -61,72 +64,88 @@ DEADLINE_PATTERN = re.compile(
 )
 
 SKIP_DOMAINS = {
+    # Social / general web
     "linkedin.com", "reddit.com", "youtube.com", "wikipedia.org",
-    "quora.com", "twitter.com", "facebook.com",
+    "quora.com", "twitter.com", "facebook.com", "instagram.com",
+    # HRIS vendors (not buyers)
     "workday.com", "bamboohr.com", "gusto.com", "rippling.com",
-    "adp.com", "paychex.com", "paylocity.com",
-    "shrm.org", "businessinsider.com", "forbes.com",
+    "adp.com", "paychex.com", "paylocity.com", "ultipro.com",
+    "ukg.com", "ceridian.com", "kronos.com", "successfactors.com",
+    "namely.com", "zenefits.com", "leapsome.com", "lattice.com",
+    "rippling.com", "hibob.com", "personio.com", "sage.com",
+    # RFP template / comparison / consultant sites (not buyers)
+    "comparehris.com", "hrtechsaas.com", "hrisconsultants.co.uk",
+    "starbridge.ai", "tendersontime.com", "rfpmart.com",
+    "instantmarkets.com", "govly.com", "highergov.com",
+    "neogov.com", "rfp360.com", "loopio.com", "ombud.com",
+    # Media / editorial
+    "shrm.org", "businessinsider.com", "forbes.com", "techraynews.com",
+    "hrdive.com", "hrexecutive.com", "zdnet.com", "techrepublic.com",
+    "gartner.com", "g2.com", "capterra.com", "softwareadvice.com",
 }
 
 QUERIES = [
-    # Federal / SAM.gov
-    'site:sam.gov "human resources" "request for proposal" "HRIS" 2024 OR 2025',
-    'site:sam.gov "onboarding" OR "payroll" "request for proposal" 2025',
-    '"sam.gov" "HR software" OR "HRIS" RFP 2025',
+    # Procurement portals — direct domain targeting (no site: operator, use domain in query)
+    '"human resources information system" RFP 2026 bidnet',
+    '"HRIS" RFP 2026 demandstar',
+    '"HR software" OR "HRIS" RFP 2026 opengov procurement',
+    '"human resources" RFP 2026 bonfirehub',
+    '"HRIS" OR "payroll system" RFP 2026 publicpurchase',
+    '"HR software" RFP 2026 ionwave OR periscope OR biddingo',
 
-    # State government
-    '"request for proposal" "HRIS" OR "human resources system" site:.gov 2025',
-    '"request for proposal" "payroll system" site:.gov 2025',
-    '"RFP" "HR software" OR "onboarding system" site:.gov 2024 OR 2025',
-    '"request for proposal" "workforce management system" site:.gov',
-    '"competitive bid" "human resources information system" site:.gov',
-    '"invitation to bid" "payroll" OR "HRIS" site:.gov 2025',
+    # SAM.gov federal
+    '"human resources information system" "request for proposal" sam.gov 2026',
+    '"HRIS" OR "HCM" "request for proposal" sam.gov 2026',
 
     # School districts
-    '"request for proposal" "HRIS" OR "HR software" "school district" 2025',
-    '"RFP" "human resources" "school district" "onboarding" 2024 OR 2025',
-    '"request for proposal" "payroll services" "school district" site:.k12.us OR site:.edu',
-    '"competitive bid" "HR system" "ISD" OR "USD" OR "CUSD" 2025',
+    '"request for proposal" "HRIS" "school district" 2026',
+    '"request for proposal" "HR software" "school district" 2026',
+    '"RFP" "human resources" "school district" "onboarding" 2026',
+    '"request for proposal" "payroll services" "school district" 2026',
+    '"competitive bid" "HRIS" OR "HR system" "ISD" OR "USD" OR "CUSD" 2026',
 
     # Counties and municipalities
-    '"request for proposal" "human resources information system" "county" 2025',
-    '"RFP" "HRIS" "city of" OR "town of" OR "county of" 2025',
-    '"request for proposal" "payroll" "municipality" OR "township" 2025',
-    '"competitive bid" "HR software" "county" site:.gov 2025',
+    '"request for proposal" "human resources information system" county 2026',
+    '"RFP" "HRIS" "city of" 2026',
+    '"RFP" "HRIS" "county of" OR "town of" 2026',
+    '"request for proposal" "payroll" municipality 2026',
+    '"request for proposal" "HR software" county government 2026',
+
+    # State agencies
+    '"request for proposal" "HRIS" "state of" 2026',
+    '"request for proposal" "human resources system" "state agency" 2026',
+    '"competitive solicitation" "HRIS" OR "HR software" 2026',
+    '"request for proposal" "payroll system" "state of" 2026',
 
     # Healthcare
-    '"request for proposal" "HRIS" OR "HR software" "hospital" OR "health system" 2025',
-    '"RFP" "human resources" "healthcare" "onboarding" 2025',
-    '"request for proposal" "workforce management" "health" site:.org 2025',
+    '"request for proposal" "HRIS" hospital 2026',
+    '"request for proposal" "HR software" "health system" 2026',
+    '"RFP" "human resources" "healthcare" onboarding 2026',
+    '"request for proposal" "workforce management" hospital 2026',
 
-    # Nonprofits / Social Services
-    '"request for proposal" "HR software" OR "HRIS" site:.org 2025',
-    '"RFP" "human resources system" "nonprofit" 2025',
-    '"request for proposal" "payroll" "nonprofit" OR "foundation" 2025',
+    # Utilities
+    '"request for proposal" "HRIS" OR "HR software" utility 2026',
+    '"RFP" "human resources system" "electric" OR "water" OR "gas" utility 2026',
 
-    # BidNet / DemandStar / state portals
-    'site:bidnet.com "human resources" OR "HRIS" OR "payroll" 2025',
-    'site:demandstar.com "HR software" OR "HRIS" OR "onboarding" 2025',
-    'site:periscope.s1.us.com "human resources" "software" 2025',
-    'site:publicpurchase.com "HRIS" OR "HR software" 2025',
-    'site:biddingo.com "human resources" OR "payroll" OR "HRIS" 2025',
+    # Nonprofits
+    '"request for proposal" "HRIS" nonprofit 2026',
+    '"RFP" "human resources system" nonprofit 2026',
+    '"request for proposal" "payroll" "nonprofit" OR "foundation" 2026',
 
-    # State-specific procurement portals
-    '"request for proposal" "HRIS" OR "HR software" Texas 2025 site:.gov',
-    '"request for proposal" "HRIS" OR "HR software" Florida 2025 site:.gov',
-    '"request for proposal" "HRIS" OR "HR software" California 2025 site:.gov',
-    '"request for proposal" "HRIS" OR "HR software" Georgia 2025 site:.gov',
-    '"request for proposal" "HRIS" OR "HR software" Ohio 2025 site:.gov',
-    '"request for proposal" "payroll system" "state of" 2025',
+    # State-specific (no site: operator)
+    '"request for proposal" "HRIS" Texas 2026',
+    '"request for proposal" "HRIS" Florida 2026',
+    '"request for proposal" "HRIS" California 2026',
+    '"request for proposal" "HRIS" Georgia 2026',
+    '"request for proposal" "HRIS" Ohio 2026',
+    '"request for proposal" "HRIS" Tennessee 2026',
+    '"request for proposal" "HRIS" North Carolina 2026',
 
-    # Onboarding-specific
-    '"request for proposal" "employee onboarding" software 2025',
-    '"RFP" "digital onboarding" OR "paperless onboarding" 2025',
-    '"request for proposal" "new hire" "automated" OR "electronic" 2025',
-
-    # ATS / Talent
-    '"request for proposal" "applicant tracking" OR "ATS" site:.gov 2025',
-    '"RFP" "talent management system" 2025 site:.gov OR site:.edu OR site:.org',
+    # Onboarding / ATS
+    '"request for proposal" "employee onboarding" software 2026',
+    '"request for proposal" "applicant tracking system" 2026',
+    '"RFP" "talent management system" 2026',
+    '"request for proposal" "new hire" onboarding system 2026',
 ]
 
 
