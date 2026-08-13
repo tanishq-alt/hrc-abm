@@ -10,6 +10,7 @@ Usage (CLI):
   python agent.py --module p05_workmates
   python agent.py --module p06_healthcare
   python agent.py --module p07_education
+  python agent.py --module p08_linkedin_engagers
   python agent.py --module all
 
 Legacy module names also work:
@@ -46,11 +47,13 @@ MODULE_MAP = {
     "p05_workmates":         BASE / "scrapers/p05_workmates/workmates_finder.py",
     "p06_healthcare":        BASE / "scrapers/p06_healthcare/healthcare_finder.py",
     "p07_education":         BASE / "scrapers/p07_education/education_finder.py",
+    "p08_linkedin_engagers": BASE / "scrapers/p08_linkedin_engagers/linkedin_engager_finder.py",
     # Legacy aliases
     "manual_onboarding":     BASE / "scrapers/p01_manual_onboarding/batch3.py",
     "adp_confirmed":         BASE / "scrapers/p03_adp_confirmed/adp_finder.py",
     "rfp_rfq":               BASE / "scrapers/rfp_rfq/rfp_finder.py",
     "high_intent":           BASE / "scrapers/p04_high_intent/intent_signals.py",
+    "linkedin_engagers":     BASE / "scrapers/p08_linkedin_engagers/linkedin_engager_finder.py",
 }
 
 OUTPUT_MAP = {
@@ -61,11 +64,13 @@ OUTPUT_MAP = {
     "p05_workmates":         BASE / "data/workmates_leads.csv",
     "p06_healthcare":        BASE / "data/healthcare_leads.csv",
     "p07_education":         BASE / "data/education_leads.csv",
+    "p08_linkedin_engagers": BASE / "data/linkedin_leads.csv",
     # Legacy aliases
     "manual_onboarding":     BASE / "data/nano_batch3_leads.csv",
     "adp_confirmed":         BASE / "data/adp_confirmed_leads.csv",
     "rfp_rfq":               BASE / "data/rfp_rfq_leads.csv",
     "high_intent":           BASE / "data/high_intent_leads.csv",
+    "linkedin_engagers":     BASE / "data/linkedin_leads.csv",
 }
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -179,7 +184,9 @@ def main():
     primary_modules = [
         "p01_manual_onboarding", "p02_lookalike", "p03_adp_confirmed",
         "p04_high_intent", "p05_workmates", "p06_healthcare", "p07_education",
+        "p08_linkedin_engagers",
         "manual_onboarding", "adp_confirmed", "high_intent", "rfp_rfq",
+        "linkedin_engagers",
     ]
     parser.add_argument(
         "--module",
