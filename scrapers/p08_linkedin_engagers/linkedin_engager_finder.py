@@ -1,19 +1,23 @@
 """
 P08 LinkedIn Engagement Lead Finder — HR Cloud ICP
-Uses ScrapegraphAI's Playwright browser engine (no LLM API key required).
+Uses your real Chrome browser via CDP (no LinkedIn bot detection, no API key needed).
+
+SETUP (one time):
+  1. Quit Chrome completely: pkill -x "Google Chrome"
+  2. Restart Chrome with remote debug port:
+       open -a "Google Chrome" --args --remote-debugging-port=9222
+  3. In Chrome, go to linkedin.com and log in if not already
+  4. Run this script:
+       python3 scrapers/p08_linkedin_engagers/linkedin_engager_finder.py --cdp
 
 Workflow:
-  1. Opens a visible browser → you log into LinkedIn once
+  1. Connects to your real Chrome (already logged into LinkedIn)
   2. Scrapes posts from ASHHRA, HR Healthcare, HHRAM, CUPA-HR (last 30 days)
   3. Filters posts by ICP-relevant topics
   4. Extracts commenters + reactors from each qualifying post
   5. Visits each person's profile → extracts title, company, size, industry
   6. Scores + tiers against HR Cloud ICP
   7. Writes data/linkedin_leads.csv
-
-Run:
-  python3 scrapers/p08_linkedin_engagers/linkedin_engager_finder.py
-  python3 scrapers/p08_linkedin_engagers/linkedin_engager_finder.py --headless  # requires li_at cookie
 """
 
 import argparse
@@ -115,7 +119,7 @@ def is_logged_in(page) -> bool:
 
 
 def login_flow(page, cookies_path: Path):
-    """Open LinkedIn login, wait for user to log in, save cookies."""
+    """Open LinkedIn login, auto-detect when user logs in, save cookies."""
     page.goto("https://www.linkedin.com/login", wait_until="networkidle")
     if is_logged_in(page):
         print("  Already logged in.", flush=True)
@@ -123,10 +127,28 @@ def login_flow(page, cookies_path: Path):
 
     print("\n" + "=" * 60, flush=True)
     print("  ACTION REQUIRED: Log into LinkedIn in the browser window.", flush=True)
-    print("  Press ENTER here once you are logged in and can see your feed.", flush=True)
+    print("  This script will auto-continue once your feed is detected.", flush=True)
     print("=" * 60, flush=True)
-    input()
 
+    # Poll every 3 seconds for up to 3 minutes for successful login
+    deadline = time.time() + 180
+    while time.time() < deadline:
+        try:
+            page.wait_for_selector(
+                "div.global-nav__me, div.feed-shared-update-v2, "
+                "div[data-urn], .scaffold-layout__main",
+                timeout=3000,
+            )
+            if is_logged_in(page):
+                break
+        except PlaywrightTimeout:
+            pass
+        time.sleep(1)
+    else:
+        print("  Timeout waiting for login. Exiting.", flush=True)
+        sys.exit(1)
+
+    print("  Login detected — continuing.", flush=True)
     cookies = page.context.cookies()
     li_cookies = [c for c in cookies if "linkedin" in c.get("domain", "")]
     cookies_path.write_text(json.dumps(li_cookies, indent=2))
@@ -586,42 +608,90 @@ def build_qual_reason(profile: dict, post: dict, comment: str) -> str:
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="LinkedIn engagement lead finder (Playwright, no API key)")
-    parser.add_argument("--headless", action="store_true", help="Run headless (requires saved session cookies)")
+    parser = argparse.ArgumentParser(description="LinkedIn engagement lead finder — connects to your real Chrome")
+    parser.add_argument("--cdp", action="store_true", default=True,
+                        help="Connect to real Chrome via CDP (default; Chrome must be started with --remote-debugging-port=9222)")
+    parser.add_argument("--cdp-port", type=int, default=9222, help="CDP port (default: 9222)")
+    parser.add_argument("--headless", action="store_true", help="Launch headless Playwright Chromium instead of CDP")
     parser.add_argument("--posts-per-source", type=int, default=15, help="Max posts per company page")
     parser.add_argument("--max-leads", type=int, default=200, help="Max total engagers to process")
     args = parser.parse_args()
+
+    use_cdp = not args.headless  # CDP is default unless --headless overrides
 
     OUTPUT_PATH.parent.mkdir(exist_ok=True)
 
     print("=" * 70, flush=True)
     print("LinkedIn Engagement Lead Finder — HR Cloud ICP", flush=True)
-    print(f"Mode: {'headless' if args.headless else 'visible browser'}", flush=True)
+    print(f"Mode: {'CDP (real Chrome)' if use_cdp else 'Playwright Chromium'}", flush=True)
     print(f"Sources: {len(SOURCES)} | Posts/source: {args.posts_per_source} | Max leads: {args.max_leads}", flush=True)
     print("=" * 70, flush=True)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=args.headless,
-            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
-        )
-        context = browser.new_context(
-            viewport={"width": 1280, "height": 900},
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        )
-        page = context.new_page()
-
-        # ── Auth ──────────────────────────────────────────────────────────────
-        print("\nPhase 0: Authentication", flush=True)
-        cookie_loaded = load_cookies(context, COOKIES_PATH)
-        page.goto("https://www.linkedin.com", wait_until="domcontentloaded", timeout=20_000)
-        time.sleep(2)
-
-        if not is_logged_in(page):
-            if args.headless:
-                print("ERROR: Not logged in and running headless. Run without --headless first.", flush=True)
+        if use_cdp:
+            cdp_url = f"http://localhost:{args.cdp_port}"
+            print(f"\nPhase 0: Connecting to Chrome at {cdp_url}", flush=True)
+            try:
+                browser = p.chromium.connect_over_cdp(cdp_url)
+            except Exception as e:
+                print(f"\n  ERROR: Could not connect to Chrome.", flush=True)
+                print(f"  {e}", flush=True)
+                print("\n  Fix: Quit Chrome completely, then run:", flush=True)
+                print(f'    pkill -x "Google Chrome"', flush=True)
+                print(f'    open -a "Google Chrome" --args --remote-debugging-port={args.cdp_port}', flush=True)
+                print("  Then go to linkedin.com in that Chrome window (log in if needed).", flush=True)
+                print("  Then re-run this script.", flush=True)
                 sys.exit(1)
-            login_flow(page, COOKIES_PATH)
+
+            # Use existing context + existing LinkedIn page if available
+            contexts = browser.contexts
+            context = contexts[0] if contexts else browser.new_context()
+
+            # Find an existing LinkedIn page or open a new one
+            page = None
+            for ctx in browser.contexts:
+                for pg in ctx.pages:
+                    if "linkedin.com" in pg.url:
+                        page = pg
+                        print(f"  Using existing LinkedIn page: {pg.url}", flush=True)
+                        break
+                if page:
+                    break
+
+            if page is None:
+                page = context.new_page()
+                page.goto("https://www.linkedin.com/feed", wait_until="domcontentloaded", timeout=30_000)
+                time.sleep(2)
+
+        else:
+            # Fallback: launch Playwright Chromium (may be blocked by LinkedIn)
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+            )
+            context = browser.new_context(
+                viewport={"width": 1280, "height": 900},
+                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            )
+            page = context.new_page()
+            load_cookies(context, COOKIES_PATH)
+            page.goto("https://www.linkedin.com", wait_until="domcontentloaded", timeout=20_000)
+            time.sleep(2)
+
+        # ── Auth check ────────────────────────────────────────────────────────
+        print("\nPhase 0: Authentication", flush=True)
+        if not is_logged_in(page):
+            if use_cdp:
+                print("  Not logged into LinkedIn in Chrome. Please log in now...", flush=True)
+                page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded")
+                login_flow(page, COOKIES_PATH)
+            else:
+                load_cookies(context, COOKIES_PATH)
+                page.reload(wait_until="domcontentloaded")
+                time.sleep(2)
+                if not is_logged_in(page):
+                    print("ERROR: Not logged in. Run with --cdp mode (default).", flush=True)
+                    sys.exit(1)
 
         print("  Logged in ✓", flush=True)
 
@@ -715,7 +785,8 @@ def main():
             })
             print(f"    → Tier {tier} (score={score_result['score']}): {score_result['reason'][:80]}", flush=True)
 
-        browser.close()
+        if not use_cdp:
+            browser.close()
 
     # ── Sort + write CSV ──────────────────────────────────────────────────────
     tier_order = {"Tier A": 0, "Tier B": 1, "Tier C": 2}
